@@ -1,8 +1,12 @@
 import TransactionsTable from "@/components/TransactionsTable";
-import React from "react";
+import React, { Suspense } from "react";
 
 const page = () => {
-  return <TransactionsTable />;
+  return (
+    <Suspense>
+      <TransactionsTable />;
+    </Suspense>
+  );
 };
 
 export default page;
