@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import axios from "axios";
 import {
   Table,
@@ -10,6 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,161 +21,156 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Loader2 } from "lucide-react";
 
 type Transaction = {
-  _id: string;
   collect_id: string;
   school_id: string;
   gateway: string;
-  order_amount?: number;
-  transaction_amount?: number;
-  status?: string;
-  custom_order_id?: string;
-  createdAt?: string;
+  order_amount: number;
+  transaction_amount: number;
+  status: string;
+  custom_order_id: string;
 };
 
-export default function TransactionsTable() {
-  const [data, setData] = useState<Transaction[]>([]); // 🔹 Raw data from API
-  const [filteredData, setFilteredData] = useState<Transaction[]>([]); // 🔹 Client-side filtered data
-  const [loading, setLoading] = useState(false);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string | undefined>();
-  const [page, setPage] = useState(1);
+export default function TransactionsOverview() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
-  // 🔹 Fetch transactions only once (on mount)
+  // --- States synced with URL ---
+  const [status, setStatus] = useState(searchParams.get("status") || "");
+  const [schoolId, setSchoolId] = useState(searchParams.get("school_id") || "");
+  const [search, setSearch] = useState(searchParams.get("search") || "");
+
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // --- Update URL when filters change ---
   useEffect(() => {
-    const fetchData = async () => {
+    const params = new URLSearchParams();
+    if (status) params.set("status", status);
+    if (schoolId) params.set("school_id", schoolId);
+    if (search) params.set("search", search);
+
+    const newUrl = `/transactions?${params.toString()}`;
+    router.replace(newUrl); // no re-render loop
+  }, [status, schoolId, search, router]);
+
+  // --- Fetch data whenever filters change ---
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      setLoading(true);
       try {
-        setLoading(true);
         const res = await axios.get(
-          "https://edviron-assignment-backend.vercel.app/api/transactions"
+          "https://edviron-assignment-backend.vercel.app/api/transactions",
+          {
+            params: {
+              status,
+              school_id: schoolId,
+              search,
+            },
+          }
         );
-        setData(res.data.data); // keep original dataset
-        setFilteredData(res.data.data); // initialize filtered with full data
+        setTransactions(res.data.data || []);
       } catch (err) {
-        console.error(err);
+        console.error("Error fetching transactions", err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
-  }, []);
-
-  // 🔹 Apply filters client-side whenever search/statusFilter changes
-  useEffect(() => {
-    let result = [...data];
-
-    if (statusFilter) {
-      result = result.filter(
-        (t) => t.status?.toLowerCase() === statusFilter.toLowerCase()
-      );
-    }
-
-    if (search) {
-      result = result.filter((t) =>
-        t.collect_id.toLowerCase().includes(search.toLowerCase())
-      );
-    }
-
-    setFilteredData(result);
-    setPage(1); // reset to page 1 when filters change
-  }, [statusFilter, search, data]);
+    fetchTransactions();
+  }, [status, schoolId, search]);
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Transactions Overview</h1>
+    <div className="p-6 w-full">
+      <Card className="w-full shadow-xl rounded-2xl">
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold">
+            Transactions Overview
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {/* --- Filters --- */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            {/* Status Filter */}
+            <div>
+              <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filter by Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Success">Success</SelectItem>
+                  <SelectItem value="Pending">Pending</SelectItem>
+                  <SelectItem value="Failed">Failed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-      {/* Filters */}
-      <div className="flex gap-4 mb-6">
-        <Input
-          placeholder="Search by collect_id"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="max-w-xs"
-        />
+            {/* School ID Filter */}
+            <div>
+              <Input
+                placeholder="Filter by School ID"
+                value={schoolId}
+                onChange={(e) => setSchoolId(e.target.value)}
+              />
+            </div>
 
-        <Select
-          value={statusFilter}
-          onValueChange={(value) =>
-            setStatusFilter(value === "none" ? undefined : value)
-          }
-        >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">None</SelectItem>
-            <SelectItem value="success">Success</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="failed">Failed</SelectItem>
-            <SelectItem value="user_dropped">User Dropped</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+            {/* Search */}
+            <div>
+              <Input
+                placeholder="Search by Order ID"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+          </div>
 
-      {/* Table */}
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Collect ID</TableHead>
-              <TableHead>School ID</TableHead>
-              <TableHead>Gateway</TableHead>
-              <TableHead>Order Amount</TableHead>
-              <TableHead>Transaction Amount</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Custom Order ID</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center">
-                  Loading...
-                </TableCell>
-              </TableRow>
-            ) : filteredData.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center">
-                  No transactions found
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredData.slice((page - 1) * 10, page * 10).map((t) => (
-                <TableRow key={t._id}>
-                  <TableCell>{t.collect_id}</TableCell>
-                  <TableCell>{t.school_id}</TableCell>
-                  <TableCell>{t.gateway}</TableCell>
-                  <TableCell>{t.order_amount || "-"}</TableCell>
-                  <TableCell>{t.transaction_amount || "-"}</TableCell>
-                  <TableCell className="uppercase">{t.status || "-"}</TableCell>
-                  <TableCell>{t.custom_order_id || "-"}</TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* Pagination */}
-      <div className="flex justify-between items-center mt-4">
-        <Button
-          variant="outline"
-          disabled={page === 1}
-          onClick={() => setPage(page - 1)}
-        >
-          Previous
-        </Button>
-        <span>Page {page}</span>
-        <Button
-          variant="outline"
-          disabled={page * 10 >= filteredData.length}
-          onClick={() => setPage(page + 1)}
-        >
-          Next
-        </Button>
-      </div>
+          {/* --- Table --- */}
+          {loading ? (
+            <div className="flex justify-center items-center py-10">
+              <Loader2 className="animate-spin h-6 w-6 text-muted-foreground" />
+            </div>
+          ) : (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Collect ID</TableHead>
+                    <TableHead>School ID</TableHead>
+                    <TableHead>Gateway</TableHead>
+                    <TableHead>Order Amount</TableHead>
+                    <TableHead>Transaction Amount</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Custom Order ID</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {transactions.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-6">
+                        No transactions found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    transactions.map((txn) => (
+                      <TableRow key={txn.collect_id}>
+                        <TableCell>{txn.collect_id}</TableCell>
+                        <TableCell>{txn.school_id}</TableCell>
+                        <TableCell>{txn.gateway}</TableCell>
+                        <TableCell>₹{txn.order_amount}</TableCell>
+                        <TableCell>₹{txn.transaction_amount}</TableCell>
+                        <TableCell>{txn.status}</TableCell>
+                        <TableCell>{txn.custom_order_id}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

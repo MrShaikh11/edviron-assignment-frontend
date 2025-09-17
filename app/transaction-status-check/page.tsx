@@ -13,6 +13,14 @@ import {
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 type StatusResponse = {
   success: string;
@@ -46,6 +54,7 @@ export default function TransactionStatusPage() {
         `https://edviron-assignment-backend.vercel.app/api/transaction-status/edviron/${customOrderId}`
       );
       setResult(res.data);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (err) {
       setError("Failed to fetch transaction status. Try again.");
     } finally {
@@ -54,7 +63,7 @@ export default function TransactionStatusPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-6">
+    <div className="h-fit w-full flex  justify-center p-6">
       <Card className="w-full max-w-xl shadow-xl rounded-2xl">
         <CardHeader>
           <CardTitle className="text-2xl font-bold">
@@ -96,32 +105,48 @@ export default function TransactionStatusPage() {
               {error}
             </p>
           )}
-
-          {/* Status Result */}
           {result && (
-            <div className="p-4 border rounded-xl bg-gray-50 space-y-3 animate-in fade-in slide-in-from-bottom-2">
-              <p>
-                <span className="font-semibold">Status:</span>{" "}
-                <span className="uppercase">{result.status}</span>
-              </p>
-              <p>
-                <span className="font-semibold">Custom Order ID:</span>{" "}
-                {result.collect_request_id}
-              </p>
-              <p>
-                <span className="font-semibold">Amount:</span> ₹
-                {result.details.amount}
-              </p>
-
-              {/* Advanced details collapsible (optional later) */}
-              <details className="mt-2 cursor-pointer">
-                <summary className="text-sm font-medium text-gray-600">
-                  View Raw Details
-                </summary>
-                <pre className="bg-black text-white p-3 rounded-md mt-2 text-xs overflow-x-auto">
-                  {JSON.stringify(result, null, 2)}
-                </pre>
-              </details>
+            <div className="rounded-md border mt-6">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Field</TableHead>
+                    <TableHead>Value</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow>
+                    <TableCell className="font-medium">Success</TableCell>
+                    <TableCell>{result.success}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium">
+                      Custom Order ID
+                    </TableCell>
+                    <TableCell>{result.collect_request_id}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium">Status</TableCell>
+                    <TableCell className="uppercase">{result.status}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium">Amount</TableCell>
+                    <TableCell>₹{result.details.amount}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium">JWT</TableCell>
+                    <TableCell className="truncate max-w-xs">
+                      {result.details.jwt}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium">Sign</TableCell>
+                    <TableCell className="truncate max-w-xs">
+                      {result.details.sign}
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
             </div>
           )}
         </CardContent>
